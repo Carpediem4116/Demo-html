@@ -1,153 +1,207 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>你的博客名称 - 博客列表</title>
-    <style>
-        /* 基础样式 */
-        body {
-            font-family: "Microsoft Yahei", Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            line-height: 1.6;
-            color: #333;
-            background: #f4f4f4;
-        }
-
-        header {
-            background: #0073e6;
-            color: white;
-            padding: 1rem;
-            text-align: center;
-        }
-
-        .container {
-            background: white;
-            padding: 2rem;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-        }
-
-        nav {
-            background: #f4f4f4;
-            padding: 1rem;
-            margin-bottom: 2rem;
-            text-align: center;
-        }
-
-        nav a {
-            color: #0073e6;
-            text-decoration: none;
-            padding: 0 1rem;
-        }
-
-        .articles-list article {
-            margin-bottom: 1.5rem;
-            padding: 1rem;
-            border-bottom: 1px solid #eee;
-        }
-
-        .article-detail {
-            font-size: 1.1rem;
-            margin-top: 2rem;
-        }
-
-        figure {
-            text-align: center;
-            margin: 2rem 0;
-        }
-
-        footer {
-            text-align: center;
-            padding: 1rem;
-            margin-top: 2rem;
-            color: #666;
-        }
-
-        @media (max-width: 768px) {
-            body {
-                padding: 15px;
-            }
-        }
-    </style>
+  <meta charset="UTF-8">
+  <title>视频分析工具（修改版）</title>
+  <style>
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .video-container {
+      position: relative;
+      margin: 20px 0;
+    }
+    #videoElement {
+      width: 100%;
+      height: auto;
+    }
+    .coordinates {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      color: white;
+      font-size: 16px;
+      background: rgba(0, 0, 0, 0.5);
+      padding: 5px;
+    }
+    .controls {
+      margin: 10px 0;
+    }
+    .buttons {
+      margin: 10px 0;
+    }
+    .mark {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      background: red;
+      border-radius: 50%;
+      pointer-events: none;
+    }
+  </style>
 </head>
-
 <body>
-    <header>
-        <h1>你的专属博客</h1>
-        <p>记录生活，分享思考</p>
-    </header>
+<div class="container">
+  <input type="file" id="videoInput" accept="video/mp4,video/avi">
+  <div class="video-container">
+    <video id="videoElement" controls>
+      您的浏览器不支持视频元素。
+    </video>
+    <div class="coordinates" id="coordinates"></div>
+  </div>
 
-    <nav>
-        <a href="#home">首页</a>
-        <a href="#about">关于我</a>
-    </nav>
+  <div class="controls">
+    <button onclick="prevFrame()">← 上一帧</button>
+    <button onclick="nextFrame()">→ 下一帧</button>
+  </div>
 
-    <div class="container">
-        <!-- 首页文章列表 -->
-        <section id="home" class="articles-list">
-            <article>
-                <h2><a href="#detail-1">文章标题1：如何构建个人品牌</a></h2>
-                <p><strong>日期：</strong>2024-03-01</p>
-                <p>摘要：本文探讨在互联网时代个人品牌的重要性...</p>
-            </article>
-            <article>
-                <h2><a href="#detail-2">技术选型指南：2024年前端开发工具对比</a></h2>
-                <p><strong>日期：</strong>2024-03-05</p>
-                <p>摘要：深度分析Vue/Nuxt、React框架的优缺点...</p>
-            </article>
-        </section>
+  <div class="buttons">
+    <!-- 新增按钮：撤销上一次标记 -->
+    <button onclick="undoMark()">撤销上一次标记</button>
+    <button onclick="startMarking()">开始标记</button>
+    <!-- 如果需要结束标记，可增加一个结束按钮 -->
+    <button onclick="stopMarking()">结束标记</button>
+    <button onclick="exportToExcel()">导出到Excel</button>
+  </div>
 
-        <!-- 文章详情区域 -->
-        <div class="article-detail">
-            <div id="detail-1">
-                <h2>如何构建个人品牌</h2>
-                <p><em>发布于：2024-03-01</em></p>
-                <p>这是文章正文内容...
-                    <!-- 可插入图片 -->
-                <figure>
-                    <img src="https://via.placeholder.com/400x200" alt="示例图片">
-                    <figcaption>图片说明文字</figcaption>
-                </figure>
-                </p>
-            </div>
+  <div id="marksList"></div>
+</div>
 
-            <div id="detail-2">
-                <h2>技术选型指南：2024年前端开发工具对比</h2>
-                <p><em>发布于：2024-03-05</em></p>
-                <h3>Vue.js 特点</h3>
-                <ul>
-                    <li>轻量级，易于上手</li>
-                    <li>双向绑定机制</li>
-                </ul>
-                <h3>React.js 特点</h3>
-                <ul>
-                    <li>组件化开发</li>
-                    <li>虚拟DOM性能优化</li>
-                </ul>
-            </div>
-        </div>
+<script>
+  let video = document.getElementById('videoElement');
+  let isMarking = false;
+  let marks = [];
 
-        <!-- 关于我 -->
-        <section id="about">
-            <h2>关于博主</h2>
-            <figure>
-                <img src="https://via.placeholder.com/200" alt="个人形象">
-            </figure>
-            <p>一句话简介：对技术充满热情的开发者...</p>
-            <p>联系方式：
-                <a href="mailto:username@example.com">📧 邮箱</a> |
-                <b href="https://github.com/yourname" target="_blank">💻 GitHub</b>
-            </p>
-        </section>
-    </div>
+  // 加载视频
+  document.getElementById('videoInput').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    const url = URL.createObjectURL(file);
+    video.src = url;
+  });
 
-    <footer>
-        &copy; 2024 你的博客名称 | 滥用免责申明
-    </footer>
+  // 逐帧控制
+  function prevFrame() {
+    // 每次退 0.1 秒，具体帧距可根据需要调整
+    video.currentTime -= 0.1;
+  }
+
+  function nextFrame() {
+    // 每次进 0.1 秒，具体帧距可根据需要调整
+    video.currentTime += 0.1;
+  }
+
+  // 开始标记时，取消默认 controls 点击播放/暂停行为，监听自定义点击标记
+  function startMarking() {
+    isMarking = true;
+    video.controls = false;  // 取消默认控制条，避免点击冲突
+    video.addEventListener('click', markPosition);
+  }
+
+  // 结束标记时，恢复 controls 并移除事件
+  function stopMarking() {
+    isMarking = false;
+    video.controls = true;
+    video.removeEventListener('click', markPosition);
+  }
+
+  // 标记位置并自动跳下一帧
+  function markPosition(event) {
+    if (!isMarking) return;
+
+    // 阻止视频因点击而触发播放/暂停
+    event.preventDefault();
+    event.stopPropagation();
+
+    const rect = video.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+
+    // 在视频上显示标记
+    const mark = document.createElement('div');
+    mark.className = 'mark';
+    mark.style.left = x + 'px';
+    mark.style.top = y + 'px';
+    document.querySelector('.video-container').appendChild(mark);
+
+    // 记录当前标记数据
+    marks.push({
+      time: video.currentTime,
+      x: x,
+      y: y
+    });
+
+    // 显示坐标
+    document.getElementById('coordinates').textContent =
+      `X: ${x.toFixed(2)}px, Y: ${y.toFixed(2)}px, Time: ${video.currentTime.toFixed(2)}s`;
+
+    // 更新标记列表
+    updateMarksList();
+
+    // 自动进入下一帧
+    nextFrame();
+  }
+
+  // 撤销上一次标记
+  function undoMark() {
+    if (marks.length === 0) return;
+    // 移除最后的标记数据
+    marks.pop();
+
+    // 移除最后一个标记点
+    const container = document.querySelector('.video-container');
+    const markElements = container.querySelectorAll('.mark');
+    if (markElements.length > 0) {
+      const lastMark = markElements[markElements.length - 1];
+      container.removeChild(lastMark);
+    }
+
+    // 更新列表
+    updateMarksList();
+  }
+
+  // 更新标记列表
+  function updateMarksList() {
+    const list = document.getElementById('marksList');
+    list.innerHTML = marks
+      .map((mark, index) =>
+        `<div>标记 ${index + 1}: X=${mark.x.toFixed(2)}px, Y=${mark.y.toFixed(2)}px, Time=${mark.time.toFixed(2)}s</div>`
+      )
+      .join('');
+  }
+
+  // 导出到Excel
+  function exportToExcel() {
+    const csvContent = [
+      ['标记序号', 'X坐标(像素)', 'Y坐标(像素)', '时间(秒)'],
+      ...marks.map((mark, index) => [
+        index + 1,
+        mark.x.toFixed(2),
+        mark.y.toFixed(2),
+        mark.time.toFixed(2)
+      ])
+    ]
+      .map(row => row.join(','))
+      .join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'video_marks.csv';
+    a.click();
+    window.URL.revokeObjectURL(url);
+  }
+
+  // 添加键盘事件监听
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'ArrowLeft') {
+      prevFrame();
+    } else if (e.key === 'ArrowRight') {
+      nextFrame();
+    }
+  });
+</script>
 </body>
-
 </html>
